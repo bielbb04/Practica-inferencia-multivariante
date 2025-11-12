@@ -1,1 +1,1 @@
-# Pr-ctica-inferencia-multivariante
+# Práctica-inferencia-multivariante
