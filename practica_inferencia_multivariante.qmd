@@ -1,0 +1,304 @@
+---
+title: "Ejercicios de estimación y contrastes multivariantes"
+subtitle: "23217- Análisis de Datos para el GMAT"
+date: today
+format:
+  html:
+    theme: lumen
+    toc: true
+    toc-depth: 3
+Rendering:
+    embed-resources: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Problema 1
+
+Una empresa de marketing realizó una encuesta a 500 clientes para conocer sus preferencias entre tres productos: A, B y C. Los resultados fueron los siguientes:
+
+-   Producto A: 200 clientes lo prefieren.
+-   Producto B: 150 clientes lo prefieren.
+-   Producto C: 150 clientes lo prefieren.
+
+(a) Define un modelo multinomial para las preferencias de los clientes. Estima los parámetros del modelo.
+
+    ```{r}
+    #donat que hem d'estimar el model multinomial com f(x1,x2,x3) = n! / x1!x2!x3! p1^x1  p2^x2 p3^x3 hem d'estimar les probabilitat teòriques
+    p1 = 200/500
+    p2 = 150/500
+    p3=p2
+    multinomial <- function(x1,x2,x3){
+      facts = factorial(x1+x2+x3) /(factorial(x1)*factorial(x2)*factorial(x3))
+      probs = (p1^x1) * (p2^x2) * (p3^x3)
+      resultat = facts*probs
+      return(resultat)
+    }
+
+    ```
+
+(b) Utiliza el modelo para estimar la probabilidad de que en una muestra de 10 clientes, 5 prefieran el producto A, 3 prefieran el producto B y 2 prefieran el producto C. Utiliza R para hacer los cálculos.
+
+    ```{r}
+    prob = multinomial(5,3,2)
+    prob
+    ```
+
+(c) Simula 1000 muestras aleatorias de tamaño 10 y calcula cuántas veces ocurre cada combinación de preferencias. Calcula la frecuencia con la que aparece cada combinación de preferencias en las simulaciones. Compara la probabilidad teórica calculada en el apartado b con la frecuencia observada en las simulaciones.
+
+    ```{r}
+    set.seed(42)
+    muestras <- rmultinom(
+      n = 1000,
+      size = 10,
+      prob = c(p1,p2,p3)
+    )
+
+    combinacions = apply(muestras,2,paste,collapse = "-")
+
+    taula_freq = table(combinacions)
+    taula_freq['5-3-2']
+    prob_practica = 65/1000
+    prob_practica
+    ```
+
+## Problema 2
+
+Una organización ambiental está interesada en modelar los niveles de contaminación en una ciudad, tomando en cuenta dos variables: la cantidad de emisiones industriales (en toneladas) y la densidad de tráfico (número de vehículos por kilómetro cuadrado). Se ha tomado una muestra de $n=5$ días en los que se midieron estas variables, junto con los niveles de contaminación registrados (en partículas por millón). Los datos son los siguientes:
+
+| Contaminación (Y) | Emisiones Industriales (X1) | Densidad de Tráfico (X2) |
+|-------------------|-----------------------------|--------------------------|
+| 50                | 200                         | 150                      |
+| 60                | 240                         | 170                      |
+| 55                | 220                         | 160                      |
+| 52                | 210                         | 155                      |
+| 58                | 230                         | 165                      |
+
+Supón que los datos siguen un modelo de regresión multivariante del tipo:
+
+$$
+Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \epsilon
+$$
+
+Donde $Y$ es el vector de niveles de contaminación, $X_1$ es el vector de emisiones industriales, $X_2$ es la densidad de tráfico, y $\epsilon$ es el término de error.
+
+Calcula la función de score e interpreta el resultado en este contexto ambiental
+
+```{r}
+library(tidyverse)
+data_cont = data.frame(industria = c(200,240,220,210,230),trafico = c(150,170,160,155,165),contaminacion = c(50,60,55,52,58))
+
+X = data %>%
+  select(industria, trafico)
+Y = as.matrix(data %>% 
+  select(contaminacion))
+
+Xbarra = as.matrix(data.frame(unos = c(1,1,1,1,1), X))
+mitjes = colMeans(Xbarra)
+
+
+#per calcular beta emprarem el mètode dels mínims quadrats, com eps_i = y_i - beta0 - beta1x1 - beta2x2, llavors feim la derivada respecte beta del quadrat i resulta que beta = (X^t X)^-1 X^tY
+beta = solve((t(Xbarra)%*%Xbarra)) %*% (t(Xbarra)%*%Y)
+var = (1/(length(Xbarra)-1)) * ((Xbarra[1,]-mitjes)^2 + (Xbarra[2,]-mitjes)^2 + (Xbarra[3,]-mitjes)^2 + (Xbarra[4,]-mitjes)^2 + (Xbarra[5,]-mitjes)^2)
+
+score = (1/var) * (t(Xbarra) %*% (Y - Xbarra%*%beta))
+score
+```
+
+Como no podemos encontraer el estimador de beta por la singularidad de X\^tX entonces podemos usar beta_0 = (0,0,0) e intentar que salga un buen estimador.
+
+## Problema 3
+
+Una clínica está realizando un estudio para evaluar la eficacia de un nuevo tratamiento médico para reducir la presión arterial. Se selecciona una muestra de $n = 10$ pacientes y se mide la disminución de la presión arterial (en mmHg) después de aplicar el tratamiento. El cambio en la presión arterial se modela mediante una distribución normal con media $\mu$ y varianza $\sigma^2$.
+
+Las disminuciones observadas en la presión arterial de los pacientes son las siguientes (en mmHg):
+
+| Paciente | Disminución (Y) |
+|----------|-----------------|
+| 1        | 12              |
+| 2        | 8               |
+| 3        | 10              |
+| 4        | 15              |
+| 5        | 7               |
+| 6        | 9               |
+| 7        | 14              |
+| 8        | 11              |
+| 9        | 13              |
+| 10       | 6               |
+
+Se asume que los datos provienen de una distribución normal $Y_i \sim N(\mu, \sigma^2)$.
+
+(a) ¿Cuáles son las estimaciones de máxima verosimilitud para $\mu$ y $\sigma^2$ en este modelo?
+
+    ```{r}
+    data_sang = c(12,8,10,15,7,9,14,11,13,6)
+
+    mu = mean(data_sang)
+    centrado = (data_sang - mu*c(1,1,1,1,1,1,1,1,1,1))^2
+    sigma = (1/(length(data_sang)-1))*var(centrado)
+    mu
+    sigma
+    ```
+
+(b) Calcula la matriz de información de Fisher para los parámetros $\mu$ y $\sigma^2$ en este modelo e interpreta los resultados.
+
+    ```{r}
+    fisher = matrix(c(10/sigma, 0, 0, ))
+    ```
+
+## Problema 4
+
+Una empresa desea comprobar si el perfil medio de sus trabajadores en cuanto a\
+rendimiento ($X_1$) y satisfacción laboral ($X_2$) coincide con los valores de referencia establecidos por la dirección:
+
+$$
+\boldsymbol{\mu}_0 =
+\begin{pmatrix}
+70\\
+7
+\end{pmatrix}.
+$$
+
+Para ello, se selecciona una muestra aleatoria de tamaño $n$ de empleados y se registran sus puntuaciones en ambas variables. Se asume que el vector de observaciones
+
+$$
+\mathbf{X} = (X_1, X_2)^\top
+$$
+
+sigue una distribución normal bivariante
+
+$$
+\mathbf{X} \sim N_2(\boldsymbol{\mu}, \boldsymbol{\Sigma}),
+$$
+
+con matriz de covarianzas desconocida $\boldsymbol{\Sigma}$.
+
+Se desea contrastar la hipótesis
+
+$$
+H_0: \boldsymbol{\mu} = \boldsymbol{\mu}_0
+\quad \text{frente a} \quad
+H_1: \boldsymbol{\mu} \neq \boldsymbol{\mu}_0,
+$$
+
+(a) Genera una muestra simulada de tamaño $n$ de la distribución $N_2(\boldsymbol{\mu}, \boldsymbol{\Sigma})$ (elige unos valores razonables para $\boldsymbol{\mu}$ y $\boldsymbol{\Sigma}$).
+
+    ```{r}
+    library(MASS)
+    mu = c(70,7)
+    sigma = matrix(c(0.75,0.5, 0.5,0.35), nrow = 2)
+
+    mostra = mvrnorm(
+      n = 100,
+      mu = mu,
+      Sigma = sigma
+    )
+    ```
+
+(b) Calcula la media muestral $\bar{\mathbf{X}}$, la matriz de covarianzas $\mathbf{S}$ y el estadístico de Hotelling $T^2$.
+
+    ```{r}
+    media_mostral = colMeans(mostra)
+
+    cov_mostral = cov(mostra)
+
+    est_hotelling = (length(mostra) - 1) * (mu - media_mostral) %*% solve(cov_mostral) %*% (mu - media_mostral)
+    est_hotelling
+    ```
+
+(c) Transforma $T^2$ a la escala F usando la distribución $F_{p,\,n-p}$ y calcula el p-valor del contraste para un nivel de significación $\alpha = 0.05$.
+
+    ```{r}
+    est_fisher = ((length(mostra)-2)/2) * (mu - media_mostral) %*% solve(cov_mostral) %*% (mu - media_mostral)
+    est_fisher
+    ```
+
+(d) Decide si se rechaza o no $H_0$.
+
+    ```{r}
+
+    ```
+
+(e) Interpreta el resultado en el contexto del problema: ¿parece que el vector medio real de la población difiere de $\boldsymbol{\mu}_0$?
+
+    ```{r}
+
+    ```
+
+## Problema 5
+
+Un laboratorio de psicología quiere comparar el perfil cognitivo medio de dos grupos de estudiantes universitarios: los que duermen al menos 8 horas diarias y los que duermen menos de 6 horas.
+
+A cada participante se le administran dos pruebas:
+
+-   $X_1$: tiempo de reacción (en milisegundos, menor es mejor),
+-   $X_2$: puntuación de memoria a corto plazo (de 0 a 20, mayor es mejor).
+
+Se asume que cada grupo sigue una distribución normal bivariante con igual matriz de covarianzas $\boldsymbol{\Sigma}$:
+
+$$
+\mathbf{X}_1 \sim N_2(\boldsymbol{\mu}_1, \boldsymbol{\Sigma}), \qquad
+\mathbf{X}_2 \sim N_2(\boldsymbol{\mu}_2, \boldsymbol{\Sigma}).
+$$
+
+Se desea contrastar la hipótesis
+
+$$
+H_0: \boldsymbol{\mu}_1 = \boldsymbol{\mu}_2
+\quad \text{frente a} \quad
+H_1: \boldsymbol{\mu}_1 \neq \boldsymbol{\mu}_2.
+$$
+
+*Datos simulados:*
+
+| Grupo | $X_1$ (tiempo reacción, ms) | $X_2$ (memoria) |
+|:-----------------|----------------------------------:|------------------:|
+| Dormir ≥ 8h | 268, 275, 290, 260, 280, 295, 300, 285, 270, 310 | 15, 14, 17, 16, 15, 18, 17, 16, 15, 17 |
+| Dormir \< 6h | 305, 320, 330, 310, 325, 335, 340, 315, 310, 330 | 12, 11, 10, 13, 12, 11, 10, 12, 11, 10 |
+
+Contrasta la hipótesis anterior con un nivel de significación $\alpha = 0.05$ e interpreta los resultados en el contexto del problema.
+
+```{r}
+data1 = data.frame(temps = c(268, 275, 290, 260, 280, 295, 300, 285, 270, 310), memoria = c(15, 14, 17, 16, 15, 18, 17, 16, 15, 17))
+data2 = data.frame(temps = c(305, 320, 330, 310, 325, 335, 340, 315, 310, 330), memoria = c(12, 11, 10, 13, 12, 11, 10, 12, 11, 10))
+
+media1 = colMeans(data1)
+media2 = colMeans(data2)
+media_total = (media1 + media2) / 2
+
+cov1 = cov(data1)
+cov2 = cov(data2)
+cov_total = (1/(2*length(data1) - 2)) * length(data1) * (cov1 + cov2)
+```
+
+```{r}
+t = matrix(0, nrow=2, ncol =2)
+W <- matrix(0, nrow = 2, ncol = 2)
+
+for (i in 1:nrow(data1)) {
+    diff <- as.matrix(data1[i, ] - media1)
+    W <- W + t(diff) %*% (diff)
+  }
+
+
+for (j in 1:nrow(data2)) {
+    diff <- as.matrix(data2[i, ] - media2)
+    W <- W + t(diff) %*% (diff)
+  }
+
+for (i in 1:nrow(data1)) {
+    diff <- as.matrix(data1[i, ] - media_total)
+    W <- W + t(diff) %*% (diff)
+  }
+
+
+for (j in 1:nrow(data2)) {
+    diff <- as.matrix(data2[i, ] - media_total)
+    W <- W + t(diff) %*% (diff)
+  }
+
+wilks = abs(W)/abs(t)
+wilks
+```
